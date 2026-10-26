@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avia — авиабилеты</title><script src="https://cdn.tailwindcss.com"></script></head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+<header class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white pb-24">
+ <nav class="max-w-5xl mx-auto flex justify-between items-center p-5"><span class="text-2xl font-bold">✈ Avia</span>
+  <span class="text-sm opacity-80">Билеты по лучшим ценам</span></nav>
+ <h1 class="max-w-5xl mx-auto px-5 mt-8 text-3xl md:text-5xl font-bold">Найдите авиабилет в пару кликов</h1>
+</header>
+<main class="max-w-5xl mx-auto px-5 -mt-14">
+ <form id="f" class="bg-white rounded-2xl shadow-xl p-4 grid gap-3 md:grid-cols-4">
+  <select id="from" class="border rounded-xl p-3"></select><select id="to" class="border rounded-xl p-3"></select>
+  <input id="date" type="date" class="border rounded-xl p-3">
+  <button class="bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl p-3">Найти билеты</button>
+ </form>
+ <div id="res" class="mt-8 space-y-3 pb-16"></div>
+</main>
+<div id="m" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4">
+ <form id="b" class="bg-white rounded-2xl p-6 w-full max-w-sm space-y-3">
+  <h2 class="text-xl font-bold">Оформление билета</h2><p id="info" class="text-sm text-slate-500"></p>
+  <input id="name" placeholder="ФИО" class="border rounded-xl p-3 w-full"><input id="email" placeholder="Email" class="border rounded-xl p-3 w-full">
+  <p id="msg" class="text-sm"></p>
+  <div class="flex gap-2"><button class="flex-1 bg-blue-600 text-white rounded-xl p-3">Купить</button>
+  <button type="button" id="x" class="flex-1 border rounded-xl p-3">Отмена</button></div>
+ </form>
+</div>
+<script>
+const $=i=>document.getElementById(i);let cur=null;
+const t=s=>new Date(s).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+fetch('/api/airports').then(r=>r.json()).then(a=>{
+ for(const id of['from','to'])$(id).innerHTML='<option value="">'+(id=='from'?'Откуда':'Куда')+'</option>'+a.map(x=>`<option value="${x.code}">${x.city} (${x.code}), ${x.country}</option>`).join('')});
+async function search(e){e&&e.preventDefault();
+ const q=new URLSearchParams({from:$('from').value,to:$('to').value,date:$('date').value});
+ const fl=await (await fetch('/api/flights?'+q)).json();
+ $('res').innerHTML=fl.length?fl.map(f=>`<div class="bg-white rounded-2xl shadow p-5 flex flex-wrap items-center justify-between gap-3">
+  <div><div class="font-semibold">${f.from_city} → ${f.to_city}</div><div class="text-sm text-slate-500">${t(f.depart_at)} — ${t(f.arrive_at)} · ${f.number} · мест: ${f.seats}</div></div>
+  <div class="flex items-center gap-4"><span class="text-xl font-bold">${f.price.toLocaleString('ru-RU')} ₽</span>
+  <button data-f='${JSON.stringify(f)}' class="buy bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-5 py-2">Купить</button></div></div>`).join(''):'<p class="text-center text-slate-500">Рейсы не найдены</p>'}
+$('f').onsubmit=search;search();
+$('res').onclick=e=>{const b=e.target.closest('.buy');if(!b)return;cur=JSON.parse(b.dataset.f);
+ $('info').textContent=`${cur.from_city} → ${cur.to_city}, ${t(cur.depart_at)}, ${cur.price} ₽`;$('msg').textContent='';$('m').classList.remove('hidden')};
+$('x').onclick=()=>$('m').classList.add('hidden');
+$('b').onsubmit=async e=>{e.preventDefault();
+ const r=await fetch('/api/tickets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({flight_id:cur.id,passenger:$('name').value,email:$('email').value})});
+ const d=await r.json();$('msg').className='text-sm '+(r.ok?'text-green-600':'text-red-600');
+ $('msg').textContent=r.ok?'Билет оформлен! №'+d.id:d.error;if(r.ok)search()};
+</script></body></html>
