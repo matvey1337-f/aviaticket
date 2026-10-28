@@ -62,10 +62,17 @@ FLIGHT_SQL = """SELECT f.id, f.number, f.depart_at, f.arrive_at, f.price, f.seat
   FROM flights f JOIN airports a ON a.id=f.from_id JOIN airports b ON b.id=f.to_id"""
 
 
+@app.after_request
+def add_x_robots_tag(response):
+    if request.path.startswith("/api/"):
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
 @app.get("/api/airports")
 def airports():
     rows = db().execute("""SELECT a.code, a.city, c.name AS country FROM airports a
-                           JOIN countries c ON c.id=a.country_id ORDER BY a.city""").fetchall()
+                            JOIN countries c ON c.id=a.country_id ORDER BY a.city""").fetchall()
     return jsonify([dict(r) for r in rows])
 
 
